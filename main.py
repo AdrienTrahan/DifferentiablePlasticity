@@ -28,7 +28,7 @@ class FAModel(nn.Module):
             self.activations[i] = x.clone()
 
             plasticWeights = self.weights[i] + self.alphas[i] * self.traces[i]
-            x = torch.tanh(torch.matmul(plasticWeights, x) + self.biases[i])
+            x = torch.sigmoid(torch.matmul(plasticWeights, torch.where(x > 0.5, 1.0, 0.0)) + self.biases[i])
 
             self.traces[i] = (1 - self.eta) * self.traces[i] + self.eta * torch.matmul(x, self.activations[i].T)
         
@@ -37,10 +37,10 @@ class FAModel(nn.Module):
 
     def backpropagate(self, error):
         def tanh_derivative(x):
-            return 1 - x ** 2
+            return (1-x) * x
         for i in reversed(range(len(self.weights))):
             activation = self.activations[i + 1]
-            prev_activation = self.activations[i]
+            prev_activation = torch.where(self.activations[i] > 0.5, 1.0, 0.0)
             grad_activation = error * tanh_derivative(activation)
 
 
@@ -71,13 +71,13 @@ class FAModel(nn.Module):
         self.weight_derivatives = [torch.zeros(self.shape[i + 1], self.shape[i]) for i in range(len(self.shape) - 1)]
         self.alpha_derivatives = [torch.zeros(self.shape[i + 1], self.shape[i]) for i in range(len(self.shape) - 1)]
 
-model = FAModel(shape=[2, 8, 1])
+model = FAModel(shape=[2, 10, 1])
 
 dataset = [
-    ([[0.0], [0.0]], [-1.0]),
+    ([[0.0], [0.0]], [0.0]),
     ([[0.0], [1.0]], [1.0]),
     ([[1.0], [0.0]], [1.0]),
-    ([[1.0], [1.0]], [-1.0])
+    ([[1.0], [1.0]], [0.0])
 ]
 
 for epoch in tqdm(range(10000)):
